@@ -8,8 +8,7 @@
 ## X-Category: Combat
 ## X-License: GPL-3.0-or-later
 ## X-Curse-Project-ID: 1671493
-# Uncomment once the Wago project exists; the packager skips Wago without it.
-# ## X-Wago-ID: 
+## X-Wago-ID: L6J9axNv
 
 Core.lua
 Display.lua
