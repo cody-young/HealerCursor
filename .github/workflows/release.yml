@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -21,5 +22,13 @@ jobs:
         uses: BigWigsMods/packager@v2
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          # CurseForge. Needs the CF_API_KEY secret and the
+          # "## X-Curse-Project-ID" line in the .toc.
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          # Wago. The packager ONLY reads WAGO_API_TOKEN -- a secret exported
+          # under any other name is silently ignored and the upload is skipped.
+          # Accept either secret name so the mapping is what matters, not the
+          # name the token happens to be stored under.
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN || secrets.WAGO_API_KEY }}
+          # Optional: add a WOWI_API_TOKEN secret to also publish to WoWInterface.
+          # WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
