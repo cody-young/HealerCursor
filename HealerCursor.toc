@@ -1,0 +1,14 @@
+## Interface: 120100, 120000, 120001, 120005, 120007
+## Title: |cff0cd29fHealer|rCursor
+## Notes: Lightweight cursor-attached spell readiness icons. Shows what you can press, right where you are looking.
+## Author: codyy
+## Version: 1.0.0
+## SavedVariables: HealerCursorDB
+## IconTexture: Interface\Icons\spell_nature_healingtouch
+## X-Category: Combat
+## X-License: GPL-3.0-or-later
+## X-Curse-Project-ID: 1671493
+
+Core.lua
+Display.lua
+Options.lua
