@@ -1,4 +1,4 @@
-## Interface: 120100, 120000, 120001, 120005, 120007
+## Interface: 120105, 120100, 120000, 120001, 120005, 120007
 ## Title: |cff0cd29fHealer|rCursor
 ## Notes: Lightweight cursor-attached spell readiness icons. Shows what you can press, right where you are looking.
 ## Author: codyy
