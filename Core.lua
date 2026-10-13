@@ -35,6 +35,12 @@ local GetSpecializationInfo = GetSpecializationInfo
 local huge               = math.huge
 local issecretvalue      = issecretvalue   -- 12.x only; nil on older clients
 
+-- The proc-overlay flag. This is the same one Blizzard's own action bars and
+-- Cooldown Manager read, which is what makes our glow the Cooldown Manager's
+-- glow rather than an imitation of it.
+local IsOverlayed        = C_SpellActivationOverlay
+                           and C_SpellActivationOverlay.IsSpellOverlayed
+
 ns.ADDON = ADDON
 
 -------------------------------------------------------------------------------
@@ -62,6 +68,7 @@ local DEFAULTS = {
     hideOnMouselook = false,
     showSwipe       = false,     -- only meaningful in desaturate mode
     showCharges     = true,
+    showProcGlow    = true,      -- Blizzard's proc alert, as the CDM draws it
 
     -- charge count text
     countFont       = "Friz Quadrata TT",
@@ -343,6 +350,19 @@ local function Recompute()
             end
         end
 
+        -- Proc glow. Asked of the RESOLVED spell only: falling back to the
+        -- base ID lights up the wrong icon whenever a talent replaces a spell
+        -- and the proc still overlays the original (Lightning Bolt -> Tempest).
+        local glow = false
+        if known and db.showProcGlow and IsOverlayed then
+            local ov = IsOverlayed(sid)
+            -- Unlike readiness this fails CLOSED. Readiness answers "can I
+            -- press this", where guessing wrong hides a usable spell; a glow
+            -- is decoration, and one stuck on with no way to re-test it is
+            -- worse than none.
+            glow = (not IsSecret(ov)) and ov and true or false
+        end
+
         -- The one thing no event will tell us: when this cooldown ends.
         local timingSecret = false
         if cooling then
@@ -382,7 +402,7 @@ local function Recompute()
 
         if st.sid ~= sid or st.known ~= known or st.shown ~= shown
            or st.cooling ~= cooling or st.maxCharges ~= maxCharges
-           or chargeChanged
+           or chargeChanged or st.glow ~= glow
            or (timingSecret and (db.showSwipe or db.showCDText)) then
             changed = true
         end
@@ -392,6 +412,7 @@ local function Recompute()
         st.cooling = cooling
         st.cdStart, st.cdDur = cdStart, cdDur
         st.charges, st.maxCharges = charges, maxCharges
+        st.glow = glow
     end
 
     -- Drop stale states when the list shrank.
@@ -486,6 +507,13 @@ local COOLDOWN_EVENTS = {
     SPELL_UPDATE_USABLE   = true,
 }
 
+-- Procs. The engine raises these exactly on the overlay edges, so a proc glow
+-- costs nothing whatsoever until something actually procs.
+local GLOW_EVENTS = {
+    SPELL_ACTIVATION_OVERLAY_GLOW_SHOW = true,
+    SPELL_ACTIVATION_OVERLAY_GLOW_HIDE = true,
+}
+
 -- Anything that can change WHICH spells you have.
 local KNOWN_EVENTS = {
     SPELLS_CHANGED                  = true,
@@ -496,6 +524,7 @@ local KNOWN_EVENTS = {
 
 for e in pairs(COOLDOWN_EVENTS) do ev:RegisterEvent(e) end
 for e in pairs(KNOWN_EVENTS)    do ev:RegisterEvent(e) end
+for e in pairs(GLOW_EVENTS)     do ev:RegisterEvent(e) end
 ev:RegisterEvent("ADDON_LOADED")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -551,6 +580,10 @@ ev:SetScript("OnEvent", function(_, event, arg1)
         ns.Display.UpdateVisibility()
         return
     end
+
+    -- Nothing but the glow reads the overlay flag, so with it switched off
+    -- these are dropped here instead of waking a recompute.
+    if GLOW_EVENTS[event] and not ns.db.showProcGlow then return end
 
     ns.MarkDirty()
 end)
@@ -745,7 +778,8 @@ local function PrintStatus()
             print(("   %d. %s  |cff888888not known|r"):format(i, name))
         elseif st.shown then
             ready = ready + 1
-            print(("   %d. %s  |cff40ff40ready|r"):format(i, name))
+            print(("   %d. %s  |cff40ff40ready|r%s"):format(i, name,
+                st.glow and " |cffffd200proc|r" or ""))
         else
             cooling = cooling + 1
             local afford = (not st.usable) and " |cffff4040(cannot afford)|r" or ""

@@ -78,6 +78,8 @@ driver:SetPoint("TOPLEFT")
 local active, armed = false, false
 local lastX, lastY, stillSince = nil, nil, 0
 
+local ClearGlows   -- defined with the icons below; Deactivate tears them down
+
 local function Reposition(x, y)
     local db = ns.db
     local s = UIParent:GetEffectiveScale()
@@ -166,6 +168,9 @@ local function Deactivate()
     anchor:SetScript("OnUpdate", nil)
     ag:Stop()
     anchor:Hide()
+    -- A parked display must not leave proc animations running behind a hidden
+    -- anchor: they are C-driven and cheap, but "cheap" is not "nothing".
+    ClearGlows()
 end
 
 -------------------------------------------------------------------------------
@@ -209,6 +214,53 @@ local function AcquireIcon(i)
 
     icons[i] = ic
     return ic
+end
+
+-------------------------------------------------------------------------------
+--  Proc glow
+--
+--  This is Blizzard's own spell activation alert -- literally the frame the
+--  Cooldown Manager and the action bars put around a proc -- so it matches
+--  them by construction instead of by imitation, and it follows their art
+--  through every patch for free. The manager pools the frames and animates
+--  them in the C engine, so a running glow costs no Lua at frame rate.
+--
+--  Looked up per call rather than cached at load: it lives in Blizzard's
+--  action bar code, and nothing here should care what order that loads in.
+-------------------------------------------------------------------------------
+local function SetGlow(ic, on)
+    on = on and true or false
+    if on == (ic.glowing or false) then return end
+
+    -- No such thing on this client: no glow, and no error either.
+    local mgr = ActionButtonSpellAlertManager
+    if not (mgr and mgr.ShowAlert and mgr.HideAlert) then return end
+
+    ic.glowing = on
+    if on then
+        mgr:ShowAlert(ic)
+        local alert = ic.SpellActivationAlert
+        if alert then
+            -- Pooled, so it arrives with whatever the last owner left on it.
+            -- Our icons sit at a deliberately high frame level; an alert still
+            -- carrying an action bar's level would draw UNDER the icon.
+            if alert:GetFrameLevel() <= ic:GetFrameLevel() then
+                alert:SetFrameLevel(ic:GetFrameLevel() + 1)
+            end
+            -- Same click-through guarantee as everything else we put on the
+            -- cursor. (Blizzard leaves it mouse-off too; this only says so.)
+            alert:EnableMouse(false)
+            if alert.SetMouseClickEnabled then alert:SetMouseClickEnabled(false) end
+        end
+    else
+        mgr:HideAlert(ic)
+    end
+end
+
+function ClearGlows()
+    for i = 1, #icons do
+        if icons[i].glowing then SetGlow(icons[i], false) end
+    end
 end
 
 -- The countdown number is a FontString the C widget creates on the Cooldown
@@ -371,13 +423,20 @@ function Display.Apply(changed)
                     ic.count:Hide()
                 end
 
+                -- Glowed whenever the icon is on screen, cooling or not,
+                -- which is what the Cooldown Manager does. A dimmed icon dims
+                -- its glow with it: the alert is our child and inherits alpha.
+                SetGlow(ic, db.showProcGlow and st.glow)
+
                 if not ic:IsShown() then ic:Show() end
             elseif ic:IsShown() then
                 ic:Hide()
                 ic.cd:Clear()
+                SetGlow(ic, false)
             end
         elseif ic and ic:IsShown() then
             ic:Hide()
+            SetGlow(ic, false)
         end
     end
 
@@ -425,10 +484,16 @@ function Display.Rebuild()
         local ic = AcquireIcon(i)
         ic:SetSize(size, size)
         StyleIcon(ic)
+        -- The alert is sized once, when it is shown, so a live one is stale
+        -- the moment the icon resizes. Dropped here and re-armed by the Apply
+        -- that follows -- which is free, since the display is gated off while
+        -- the options panel that can change a size is open.
+        SetGlow(ic, false)
         ic:Hide()
     end
     -- Retire icons past the end of the list.
     for i = #list + 1, #icons do
+        SetGlow(icons[i], false)
         icons[i]:Hide()
         icons[i].cd:Clear()
     end
@@ -480,6 +545,10 @@ function Display.SetPreview(on)
             ic:SetAlpha(1)
             ic.cd:Clear(); ic.cd:Hide()
             ic.count:Hide()
+            -- One sample glow, on the first icon only: enough to show what the
+            -- setting does and where it sits, without lighting up the whole
+            -- row while the user is dragging size and spacing around.
+            SetGlow(ic, ns.db.showProcGlow and i == 1)
             ic:Show()
             shownBuf[i] = ic
         end

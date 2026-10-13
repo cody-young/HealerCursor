@@ -39,6 +39,20 @@ drawn by the game engine rather than a Lua ticker, so it costs no frame time --
 which is also why OmniCC is kept off these icons, since it would replace the
 countdown with its own and silently ignore every setting here.
 
+## Proc glow
+
+When the game highlights a spell -- Surge of Light, Clearcasting, anything that
+lights up your action bar -- the icon gets the same glow your Cooldown Manager
+puts around it. It is not a lookalike: it is Blizzard's own spell activation
+alert, borrowed from the manager that draws it on the action bars, so it tracks
+their art through every patch and animates in the C engine rather than in Lua.
+
+Only the spell the icon is actually showing is asked. A talent that replaces a
+spell does not inherit the original's procs, so a base-ID fallback would light
+up the wrong icon.
+
+Off by ticking **Proc glow** on the Display tab.
+
 ## Why it is light
 
 The whole reason this addon exists is that the alternatives cost more frame

@@ -639,6 +639,8 @@ local function BuildPanel()
     Check("Show charge count", "showCharges")
     Check("Show cooldown swipe", "showSwipe",
         "Only applies in Dim mode -- in Hide mode the icon is not on screen while the cooldown runs.")
+    Check("Proc glow", "showProcGlow",
+        "Ring a spell the game is highlighting with Blizzard's proc alert -- the same glow your Cooldown Manager draws.")
     Check("Hide while turning", "hideOnMouselook",
         "Hide the icons while you hold right-click to steer the camera.")
 
